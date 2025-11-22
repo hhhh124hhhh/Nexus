@@ -134,8 +134,37 @@ export const generateFinancialAnalysis = async (
 
   } catch (error) {
     console.error("API Error:", error);
-    // Fallback to mock data on error
-    return getMockData(query);
+    
+    // 检查是否为429配额超限错误
+    let errorMessage = error instanceof Error ? error.message : String(error);
+    let detailedErrorMessage = ""; // 存储更详细的错误信息
+    
+    // 尝试从error对象中提取更详细的信息
+    if (error && typeof error === 'object' && 'error' in error) {
+      const errorObj = (error as any).error;
+      if (errorObj && errorObj.message) {
+        detailedErrorMessage = errorObj.message;
+      }
+    }
+    
+    if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('RESOURCE_EXHAUSTED')) {
+      console.warn("Gemini API 配额已超限，将使用模拟数据并显示提示信息");
+      // 获取模拟数据并添加配额超限标识
+      const mockData = await getMockData(query);
+      return {
+        ...mockData,
+        quotaExceeded: true,
+        errorMessage: detailedErrorMessage || "Gemini API 配额已超限，请稍后再试或配置个人 API Key"
+      };
+    }
+    
+    // 其他错误也回退到模拟数据，并添加错误标识
+    const mockData = await getMockData(query);
+    return {
+      ...mockData,
+      quotaExceeded: true, // 对于所有API错误都标记为配额超限
+      errorMessage: detailedErrorMessage || `API调用失败: ${errorMessage}`
+    };
   }
 };
 

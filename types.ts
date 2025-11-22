@@ -54,6 +54,10 @@ export interface AgentReport {
     uri: string;
   }[];
   
+  // Error and quota handling
+  quotaExceeded?: boolean;
+  errorMessage?: string;
+  
   isMock?: boolean;
 }
 

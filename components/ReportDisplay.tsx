@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { AgentReport, SwotAnalysis, CompetitorData } from '../types';
 import { 
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
@@ -7,7 +7,7 @@ import {
 import { 
   ArrowUpRight, ArrowDownRight, Minus, AlertCircle, 
   CheckCircle2, Zap, Shield, Target, Search, BrainCircuit, 
-  ChevronDown, ChevronUp, ExternalLink, Globe
+  ChevronDown, ChevronUp, ExternalLink, Globe, AlertTriangle
 } from 'lucide-react';
 
 interface ReportDisplayProps {
@@ -95,6 +95,25 @@ const CompetitorTable = ({ data }: { data: CompetitorData[] }) => (
 const ReportDisplay: React.FC<ReportDisplayProps> = ({ data, onReset }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'swot' | 'competitors'>('overview');
   const [isReasoningOpen, setIsReasoningOpen] = useState(true);
+
+  // 显示配额超限提示
+  if (data.quotaExceeded) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[500px] p-8">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 max-w-2xl w-full text-center">
+          <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-amber-800 mb-2">API 配额已超限</h3>
+          <p className="text-amber-700 mb-6">当前正在显示演示数据。Gemini API 配额已用完，请稍后再试或查看您的计费详情。</p>
+          <div className="text-sm text-amber-600 bg-white/50 rounded-xl p-4 mb-6 text-left">
+            {data.errorMessage || '配额超限，请检查您的计划和计费详情。'}
+          </div>
+          <div className="text-xs text-amber-500">
+            提示：您可以通过设置自己的 API 密钥来避免配额限制。
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const renderTrendIcon = (trend: string) => {
     if (trend === 'up') return <ArrowUpRight className="w-5 h-5 text-emerald-500" />;
@@ -242,7 +261,7 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ data, onReset }) => {
                      <span className="text-xs text-slate-400 font-medium">预测值 (E)</span>
                   </div>
                 </div>
-                <div className="h-[300px] w-full">
+                <div className="h-[300px] w-full min-w-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     {data.chartType === 'line' ? (
                       <LineChart data={data.chartData}>
