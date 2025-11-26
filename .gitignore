@@ -27,3 +27,5 @@ dist-ssr
 app.py
 requirements.txt
 .history/
+.trae/documents/替换Google Gemini API为国内AI API的计划.md
+.trae/documents/为国内AI厂商添加联网功能计划.md

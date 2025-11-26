@@ -261,8 +261,14 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ data, onReset }) => {
                      <span className="text-xs text-slate-400 font-medium">预测值 (E)</span>
                   </div>
                 </div>
-                <div className="h-[300px] w-full min-w-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[300px] w-full min-w-[300px] flex items-center justify-center relative">
+                  <ResponsiveContainer 
+                    width="100%" 
+                    height="100%"
+                    minWidth={300}
+                    minHeight={300}
+                    style={{ width: '100%', height: '100%' }}
+                  >
                     {data.chartType === 'line' ? (
                       <LineChart data={data.chartData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />

@@ -61,6 +61,15 @@ export interface AgentReport {
   isMock?: boolean;
 }
 
+// AI API类型枚举
+export enum AiApiType {
+  GEMINI = 'gemini',
+  DEEPSEEK = 'deepseek',
+  KIMI = 'kimi',
+  ZHIPU = 'zhipu',
+  BAIDU = 'baidu'
+}
+
 // State of the processing pipeline
 export enum ProcessStage {
   IDLE = 'IDLE',

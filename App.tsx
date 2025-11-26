@@ -3,8 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, BarChart3, Key, Info, Check, X } from 'lucide-react';
 import ProcessVisualizer from './components/ProcessVisualizer';
 import ReportDisplay from './components/ReportDisplay';
-import { generateFinancialAnalysis } from './services/geminiService';
-import { AgentReport, ProcessStage, ProcessStep } from './types';
+import { generateFinancialAnalysis } from './services/aiService';
+import { AgentReport, ProcessStage, ProcessStep, AiApiType } from './types';
 
 const INITIAL_STEPS: ProcessStep[] = [
   { id: '1', agentName: 'SearchAgent', label: '系统就绪', status: 'pending' },
@@ -29,8 +29,18 @@ const App: React.FC = () => {
   const [report, setReport] = useState<AgentReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   
-  // API Key Management
-  const [apiKey, setApiKey] = useState('');
+  // AI API Selection
+  const [selectedAiApi, setSelectedAiApi] = useState<AiApiType>(AiApiType.GEMINI);
+  
+  // API Key Management - support multiple AI APIs
+  const [apiKeys, setApiKeys] = useState<Record<AiApiType, string>>({
+    [AiApiType.GEMINI]: '',
+    [AiApiType.DEEPSEEK]: '',
+    [AiApiType.KIMI]: '',
+    [AiApiType.ZHIPU]: '',
+    [AiApiType.BAIDU]: ''
+  });
+  
   const [tempApiKey, setTempApiKey] = useState('');
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [hasEnvKey, setHasEnvKey] = useState(false);
@@ -40,7 +50,12 @@ const App: React.FC = () => {
   const messageIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const hasKey = !!process.env.API_KEY;
+    // Check if any API key is available from environment variables
+    const hasKey = !!process.env.GEMINI_API_KEY || 
+                   !!process.env.DEEPSEEK_API_KEY || 
+                   !!process.env.KIMI_API_KEY || 
+                   !!process.env.ZHIPU_API_KEY ||
+                   !!process.env.BAIDU_API_KEY;
     setHasEnvKey(hasKey);
   }, []);
 
@@ -52,18 +67,27 @@ const App: React.FC = () => {
   }, []);
 
   const handleSaveKey = () => {
-    setApiKey(tempApiKey);
+    setApiKeys(prev => ({
+      ...prev,
+      [selectedAiApi]: tempApiKey
+    }));
     setShowKeyInput(false);
   };
 
-  const isConnected = hasEnvKey || !!apiKey;
+  // Get current API key based on selected AI API
+  const getCurrentApiKey = () => {
+    return apiKeys[selectedAiApi] || '';
+  };
+
+  // Check if connected to selected AI API
+  const isConnected = hasEnvKey || !!getCurrentApiKey();
 
   // Automatically show input if not connected on load (and no env key)
   useEffect(() => {
     if (!isConnected) {
         setShowKeyInput(true);
     }
-  }, [isConnected]);
+  }, [isConnected, selectedAiApi]);
 
   const runSimulation = async (userQuery: string) => {
     setStage(ProcessStage.PROCESSING);
@@ -71,17 +95,25 @@ const App: React.FC = () => {
     setError(null);
     if (messageIntervalRef.current) clearInterval(messageIntervalRef.current);
 
-    // Initial State
+    // Initial State - dynamic connection message based on selected AI API
+    const connectionMessage = {
+      [AiApiType.GEMINI]: '正在连接 Google 实时索引库...',
+      [AiApiType.DEEPSEEK]: '正在连接 DeepSeek AI 服务...',
+      [AiApiType.KIMI]: '正在连接 Kimi AI 服务...',
+      [AiApiType.ZHIPU]: '正在连接 智谱 AI 服务...',
+      [AiApiType.BAIDU]: '正在连接 百度文心一言服务...'
+    }[selectedAiApi];
+
     setSteps([
-      { id: '1', agentName: 'SearchAgent', label: '正在连接 Google 实时索引库...', status: 'active' },
+      { id: '1', agentName: 'SearchAgent', label: connectionMessage, status: 'active' },
       { id: '2', agentName: 'Analyst', label: '等待数据...', status: 'pending' },
       { id: '3', agentName: 'RiskModel', label: '等待分析...', status: 'pending' },
       { id: '4', agentName: 'ReportGen', label: '等待生成...', status: 'pending' },
     ]);
 
     try {
-      // 1. Start the API call immediately in background
-      const analysisPromise = generateFinancialAnalysis(userQuery, apiKey);
+      // 1. Start the API call immediately in background with selected AI API
+      const analysisPromise = generateFinancialAnalysis(userQuery, getCurrentApiKey(), selectedAiApi);
 
       // 2. Play the "Pre-computation" animation (Steps 1-3)
       //    We make these fast enough to feel responsive, but not instant.
@@ -175,20 +207,42 @@ const App: React.FC = () => {
               {!isConnected ? (
                 <span className="flex items-center gap-1">
                   <Info className="w-4 h-4 text-amber-500" />
-                  <strong>演示模式：</strong> 请输入 Gemini API Key 以使用真实数据
+                  <strong>演示模式：</strong> 请输入对应 AI API Key 以使用真实数据
                 </span>
               ) : (
-                 <strong>已连接至 Gemini AI (支持 Google Search 实时联网)</strong>
+                <strong>
+                  {selectedAiApi === AiApiType.GEMINI && '已连接至 Gemini AI (支持 Google Search 实时联网)'}
+                  {selectedAiApi === AiApiType.DEEPSEEK && '已连接至 DeepSeek AI'}
+                  {selectedAiApi === AiApiType.KIMI && '已连接至 Kimi AI'}
+                  {selectedAiApi === AiApiType.ZHIPU && '已连接至 智谱 AI'}
+                  {selectedAiApi === AiApiType.BAIDU && '已连接至 百度文心一言'}
+                </strong>
               )}
             </span>
           </div>
           
           <div className="flex items-center gap-2">
+            {/* AI API Selector */}
+            <select 
+              value={selectedAiApi}
+              onChange={(e) => setSelectedAiApi(e.target.value as AiApiType)}
+              className="text-xs px-3 py-1.5 rounded-full font-bold border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 transition-colors"
+            >
+              <option value={AiApiType.GEMINI}>Gemini</option>
+              <option value={AiApiType.DEEPSEEK}>DeepSeek</option>
+              <option value={AiApiType.KIMI}>Kimi</option>
+              <option value={AiApiType.ZHIPU}>智谱</option>
+              <option value={AiApiType.BAIDU}>百度文心一言</option>
+            </select>
+            
             {showKeyInput ? (
               <div className="flex items-center gap-2 animate-fade-in-up">
                   <input 
                     type="password" 
-                    placeholder="粘贴 Google Gemini API Key"
+                    placeholder={`粘贴 ${selectedAiApi === AiApiType.GEMINI ? 'Gemini' : 
+                                  selectedAiApi === AiApiType.DEEPSEEK ? 'DeepSeek' : 
+                                  selectedAiApi === AiApiType.KIMI ? 'Kimi' : 
+                                  selectedAiApi === AiApiType.ZHIPU ? '智谱' : '百度文心一言'} API Key`}
                     className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400 w-48 md:w-72 bg-slate-50"
                     value={tempApiKey}
                     onChange={(e) => setTempApiKey(e.target.value)}
@@ -203,10 +257,10 @@ const App: React.FC = () => {
             ) : (
               <button 
                 onClick={() => setShowKeyInput(true)}
-                className={`text-xs px-4 py-1.5 rounded-full font-bold border transition-all flex items-center gap-2 ${apiKey ? 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100' : 'bg-blue-600 border-transparent text-white hover:bg-blue-700 shadow-md shadow-blue-500/20'}`}
+                className={`text-xs px-4 py-1.5 rounded-full font-bold border transition-all flex items-center gap-2 ${getCurrentApiKey() ? 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100' : 'bg-blue-600 border-transparent text-white hover:bg-blue-700 shadow-md shadow-blue-500/20'}`}
               >
                 <Key className="w-3 h-3" />
-                {apiKey ? "更换 API Key" : "配置 API Key"}
+                {getCurrentApiKey() ? "更换 API Key" : "配置 API Key"}
               </button>
             )}
           </div>
@@ -237,7 +291,7 @@ const App: React.FC = () => {
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-violet-600">每一个细微信号</span>
           </h1>
           <p className="text-slate-500 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed font-light">
-            基于 Google Gemini 实时联网搜索，融合深度推理，为您提供机构级的投资研报。
+            基于先进AI模型，融合深度推理，为您提供机构级的投资研报。
             <br className="hidden md:block" />
             请输入股票代码或公司名称开始分析。
           </p>
@@ -251,7 +305,13 @@ const App: React.FC = () => {
               <div className="relative flex items-center bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-2 gap-2 transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] focus-within:ring-4 focus-within:ring-blue-500/10 border border-slate-100">
                 
                 <div className="pl-4 pr-2 flex items-center">
-                   <span className="bg-blue-50 text-blue-600 text-xs font-bold px-2 py-1 rounded-lg">Gemini 2.5 Flash</span>
+                   <span className="bg-blue-50 text-blue-600 text-xs font-bold px-2 py-1 rounded-lg">
+                     {selectedAiApi === AiApiType.GEMINI && 'Gemini 2.5 Flash'}
+                     {selectedAiApi === AiApiType.DEEPSEEK && 'DeepSeek Chat'}
+                     {selectedAiApi === AiApiType.KIMI && 'Kimi Chat'}
+                     {selectedAiApi === AiApiType.ZHIPU && '智谱 GLM-4'}
+                     {selectedAiApi === AiApiType.BAIDU && '文心一言 ERNIE-Bot-4'}
+                   </span>
                 </div>
                 
                 <div className="w-px h-8 bg-slate-100 mx-1"></div>
