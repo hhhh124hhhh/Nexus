@@ -29,3 +29,14 @@ requirements.txt
 .history/
 .trae/documents/替换Google Gemini API为国内AI API的计划.md
 .trae/documents/为国内AI厂商添加联网功能计划.md
+.trae/documents/添加DeepSeek深度思考版支持.md
+.trae/documents/修复模型思维链日期错误问题.md
+.trae/documents/修复DeepSeek V3.2自动联网功能.md
+.trae/documents/修复DeepSeek深度思考版API 400错误.md
+.trae/documents/修复DeepSeek深度思考版API请求格式错误.md
+test-report.ts
+test-validation.ts
+tsc-errors.txt
+.trae/documents/优化AI报告数据准确性计划.md
+.trae/documents/优化AI报告数据准确性和前端体验计划.md
+.env

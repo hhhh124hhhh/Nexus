@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { AgentReport, SwotAnalysis, CompetitorData } from '../types';
 import { 
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
@@ -92,7 +92,7 @@ const CompetitorTable = ({ data }: { data: CompetitorData[] }) => (
 
 // --- Main Component ---
 
-const ReportDisplay: React.FC<ReportDisplayProps> = ({ data, onReset }) => {
+const ReportDisplay = ({ data, onReset }: ReportDisplayProps) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'swot' | 'competitors'>('overview');
   const [isReasoningOpen, setIsReasoningOpen] = useState(true);
 
@@ -203,6 +203,24 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ data, onReset }) => {
                 </div>
                 <span className="font-mono text-xs font-bold text-slate-700">{data.ratingScore}%</span>
              </div>
+             {/* 数据可信度评分 */}
+             {data.confidenceScore !== undefined && (
+               <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-full border border-blue-100">
+                  <span className="text-xs text-blue-500 font-bold">数据可信度</span>
+                  <div className="w-16 h-2 bg-blue-200 rounded-full overflow-hidden">
+                     <div 
+                       className="h-full rounded-full transition-all duration-500 ease-out"
+                       style={{ 
+                         width: `${data.confidenceScore}%`,
+                         backgroundColor: data.confidenceScore > 70 ? '#10b981' : data.confidenceScore > 40 ? '#f59e0b' : '#ef4444' 
+                       }}
+                     ></div>
+                  </div>
+                  <span className="font-mono text-xs font-bold" style={{ 
+                    color: data.confidenceScore > 70 ? '#10b981' : data.confidenceScore > 40 ? '#f59e0b' : '#ef4444' 
+                  }}>{data.confidenceScore}%</span>
+               </div>
+             )}
           </div>
         </div>
       </div>
@@ -261,13 +279,13 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ data, onReset }) => {
                      <span className="text-xs text-slate-400 font-medium">预测值 (E)</span>
                   </div>
                 </div>
-                <div className="h-[300px] w-full min-w-[300px] flex items-center justify-center relative">
+                <div className="h-[400px] w-full min-w-[300px] flex items-center justify-center relative">
                   <ResponsiveContainer 
                     width="100%" 
                     height="100%"
                     minWidth={300}
-                    minHeight={300}
-                    style={{ width: '100%', height: '100%' }}
+                    minHeight={400}
+                    style={{ width: '100%', height: '100%', minHeight: '400px' }}
                   >
                     {data.chartType === 'line' ? (
                       <LineChart data={data.chartData}>

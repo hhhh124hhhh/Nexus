@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { AgentReport, AiApiType } from '../types';
 import { createBaiduSearchService } from './baiduSearchService';
+import { createDataValidationService } from './dataValidationService';
 
 // Re-export the AiApiType enum for convenience
 export { AiApiType };
@@ -126,29 +127,50 @@ const callGeminiApi = async (query: string, apiKey: string): Promise<AgentReport
   }
 };
 
-// DeepSeek API调用逻辑
-const callDeepSeekApi = async (query: string, apiKey: string, searchResults: string = ''): Promise<AgentReport> => {
+// DeepSeek 深度思考版 API调用逻辑
+const callDeepSeekReasonerApi = async (query: string, apiKey: string): Promise<AgentReport> => {
   try {
+    console.log('=== DeepSeek 深度思考版 API调用详情 ===');
+    console.log('- 构建提示词开始');
+    
+    // 获取当前日期，确保模型使用正确的时间框架
+    const currentDate = new Date().toISOString().split('T')[0];
+    const currentYear = new Date().getFullYear();
+    
     const prompt = `
-      Role: You are Nexus, a professional institutional financial analyst.
+      Role: You are Nexus, a professional institutional financial analyst with deep reasoning capabilities.
+      Current Date: ${currentDate}
+      Current Year: ${currentYear}
       User Query: "${query}"
       
-      ${searchResults}
+      IMPORTANT TIME FRAME INFORMATION:
+      - TODAY IS IN THE YEAR ${currentYear}, NOT 2024.
+      - YOU MUST USE ${currentYear} AS THE CURRENT YEAR IN YOUR ANALYSIS.
+      - WHEN REFERENCING FINANCIAL REPORTS, USE THE MOST RECENT REPORTS FOR ${currentYear} AND ${currentYear - 1}.
+      - DO NOT MENTION 2024 AS THE CURRENT YEAR.
       
       Task: 
       1. Generate a comprehensive investment dashboard report in **Simplified Chinese (简体中文)**.
-      2. IMPORTANT: Provide the LATEST, REAL-TIME financial data and analysis based on the provided search results.
+      2. IMPORTANT: Provide in-depth financial analysis and reasoning based on your knowledge and the CURRENT DATE.
+      3. MUST use RELIABLE FINANCIAL DATA SOURCES (e.g., 东方财富网, 新浪财经, 同花顺, 雪球, 上市公司公告).
+      4. MUST cite data sources and their publication dates in the report.
+      
+      OUTPUT REQUIREMENTS:
+      - YOUR REASONING CHAIN MUST START WITH THE CURRENT YEAR ${currentYear} AND THE CURRENT DATE ${currentDate}.
+      - DO NOT START YOUR REASONING WITH REFERENCES TO 2024 AS THE CURRENT YEAR.
+      - USE THE MOST RECENT FINANCIAL DATA FOR ${currentYear} AND ${currentYear - 1}.
+      - MAKE SURE YOUR ANALYSIS REFLECTS THE ACTUAL CURRENT YEAR.
       
       Output Format:
       You MUST output a strictly valid JSON object. Do not output Markdown formatting like \`\`\`json.
       The JSON must match this structure:
       {
-        "title": "string (e.g., Company Name (Ticker) Report)",
+        "title": "string (e.g., Company Name (Ticker) ${currentYear} Report)",
         "ticker": "string",
         "rating": "BUY" | "HOLD" | "SELL",
         "ratingScore": number (0-100),
         "summary": "string (brief executive summary)",
-        "reasoning": "string (brief logical summary of the analysis)",
+        "reasoning": "string (detailed logical reasoning process)",
         "swot": {
           "strengths": ["string", "string", "string"],
           "weaknesses": ["string", "string", "string"],
@@ -164,7 +186,7 @@ const callDeepSeekApi = async (query: string, apiKey: string, searchResults: str
         ],
         "chartType": "line" | "bar",
         "chartData": [
-          { "name": "string (e.g., Q1)", "value": number }
+          { "name": "string (e.g., Q1 ${currentYear})", "value": number }
         ],
         "keyMetrics": [
           { "label": "string", "value": "string", "trend": "up" | "down" | "neutral" }
@@ -172,14 +194,231 @@ const callDeepSeekApi = async (query: string, apiKey: string, searchResults: str
       }
       
       Content Requirements:
-      - Ensure all financial metrics (Revenue, P/E, Price) are based on the provided search results.
-      - Compare against 2-3 real competitors with REAL, SPECIFIC data found in the search results.
+      - ALWAYS CONSIDER THE CURRENT YEAR ${currentYear} when analyzing financial data.
+      - Ensure all financial metrics (Revenue, P/E, Price) are accurate, reliable, and up-to-date based on the current date.
+      - Compare against 2-3 real competitors with REAL, SPECIFIC data.
       - For competitors, MUST provide actual values for revenue, marketCap, and peRatio - NEVER use "未披露" or similar vague terms.
-      - If no specific data is available for a competitor, use realistic estimates based on industry benchmarks.
-      - Include the most recent stock price and market trends from the search results.
+      - Include detailed reasoning in the analysis, starting with the current year and date.
+      - MUST cite data sources and their publication dates in the report.
       - Language: Simplified Chinese.
     `;
 
+    console.log('- 构建API请求开始');
+    console.log('- 请求URL: https://api.deepseek.com/v3.2_speciale_expires_on_20251215');
+    console.log('- 请求模型: deepseek-reasoner');
+    console.log('- 系统提示词: 专业金融分析师，具有深度推理能力');
+    console.log('- 温度参数: 0.4');
+    console.log('- 工具调用: 禁用 (该版本不支持)');
+    
+    // 发送API请求
+    console.log('- 发送DeepSeek深度思考版API请求');
+    
+    // 根据官方文档，启用联网搜索功能（深度思考版只需要enable_web_search参数）
+    const requestBody = {
+      model: 'deepseek-reasoner', // 使用深度思考版模型
+      messages: [
+        { role: 'system', content: 'You are a professional financial analyst with deep reasoning capabilities and access to real-time financial data.' },
+        { role: 'user', content: prompt }
+      ],
+      enable_web_search: true
+    };
+    
+    console.log('- 请求体内容:', JSON.stringify(requestBody, null, 2));
+    
+    // 使用深度思考版专用API端点
+    const response = await fetch('https://api.deepseek.com/v3.2_speciale_expires_on_20251215/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    console.log('- 接收DeepSeek深度思考版API响应');
+    console.log('- 响应状态码:', response.status);
+    
+    // 获取详细的响应内容，用于调试
+    let responseData;
+    try {
+      responseData = await response.json();
+      console.log('- 响应内容:', JSON.stringify(responseData, null, 2));
+    } catch (parseError) {
+      const responseText = await response.text();
+      console.error('- 无法解析JSON响应:', responseText);
+      responseData = { error: { message: responseText } };
+    }
+    
+    if (!response.ok) {
+      console.error('- DeepSeek深度思考版API请求失败');
+      const errorMessage = responseData.error?.message || `${response.status} ${response.statusText}`;
+      throw new Error(`DeepSeek Reasoner API error: ${errorMessage}`);
+    }
+
+    // 使用已经解析的responseData，避免重复解析
+    console.log('- 提取AI生成内容');
+    
+    // 检查响应数据结构
+    const choice = responseData.choices?.[0];
+    if (!choice?.message) {
+      console.error('- AI生成内容为空或格式错误');
+      throw new Error("Empty or invalid response from DeepSeek Reasoner");
+    }
+    
+    // 提取思维链内容和最终回答
+    const reasoningContent = choice.message.reasoning_content || '';
+    let resultText = choice.message.content || '';
+    
+    console.log('- 思维链内容长度:', reasoningContent.length, '字符');
+    console.log('- 最终回答长度:', resultText.length, '字符');
+    
+    // 检查内容中是否包含深度推理
+    if (reasoningContent || resultText.includes('推理') || resultText.includes('分析') || resultText.includes('逻辑') || resultText.includes('结论')) {
+      console.log('- 内容中包含深度推理，深度思考功能已正常工作');
+    }
+    
+    // 如果存在思维链内容，将其添加到reasoning字段
+    if (reasoningContent) {
+      // 预处理结果文本，确保它是有效的JSON
+      const cleanedText = cleanJsonString(resultText);
+      
+      try {
+        console.log('- 解析JSON格式报告');
+        let parsedReport = JSON.parse(cleanedText) as AgentReport;
+        
+        // 将思维链内容添加到报告的reasoning字段
+        parsedReport.reasoning = reasoningContent + '\n' + (parsedReport.reasoning || '');
+        
+        console.log('- 报告解析成功');
+        console.log('- 生成报告类型:', parsedReport.chartType);
+        console.log('- 核心指标数量:', parsedReport.keyMetrics?.length || 0);
+        
+        return {
+          ...parsedReport,
+          isMock: false
+        };
+
+      } catch (parseError) {
+        console.error("JSON Parse Error:", parseError, cleanedText);
+        throw new Error("Failed to parse DeepSeek Reasoner response");
+      }
+    } else {
+      // 处理没有思维链的情况
+      const cleanedText = cleanJsonString(resultText);
+      
+      try {
+        console.log('- 解析JSON格式报告');
+        const parsedReport = JSON.parse(cleanedText) as AgentReport;
+        
+        console.log('- 报告解析成功');
+        console.log('- 生成报告类型:', parsedReport.chartType);
+        console.log('- 核心指标数量:', parsedReport.keyMetrics?.length || 0);
+        
+        return {
+          ...parsedReport,
+          isMock: false
+        };
+
+      } catch (parseError) {
+        console.error("JSON Parse Error:", parseError, cleanedText);
+        throw new Error("Failed to parse DeepSeek Reasoner response");
+      }
+    }
+
+  } catch (error) {
+    console.error("DeepSeek Reasoner API Error:", error);
+    throw error;
+  }
+};
+
+// DeepSeek API调用逻辑
+const callDeepSeekApi = async (query: string, apiKey: string, searchResults?: string): Promise<AgentReport> => {
+  try {
+    console.log('DeepSeek API调用详情:');
+    console.log('- 构建提示词开始');
+    
+    // 获取当前日期，确保模型使用正确的时间框架
+    const currentDate = new Date().toISOString().split('T')[0];
+    const currentYear = new Date().getFullYear();
+    
+    const prompt = `
+      Role: You are Nexus, a professional institutional financial analyst with access to real-time web search capabilities.
+      Current Date: ${currentDate}
+      Current Year: ${currentYear}
+      User Query: "${query}"
+      
+      ${searchResults || ''}
+      
+      IMPORTANT TIME FRAME INFORMATION:
+      - TODAY IS IN THE YEAR ${currentYear}, NOT 2024.
+      - YOU MUST USE ${currentYear} AS THE CURRENT YEAR IN YOUR ANALYSIS.
+      - WHEN REFERENCING FINANCIAL REPORTS, USE THE MOST RECENT REPORTS FOR ${currentYear} AND ${currentYear - 1}.
+      - DO NOT MENTION 2024 AS THE CURRENT YEAR.
+      
+      Task: 
+      1. FIRST, USE THE WEB SEARCH CAPABILITY to find the LATEST, REAL-TIME financial data, news, and stock price for the requested company.
+      2. Generate a comprehensive investment dashboard report in **Simplified Chinese (简体中文)** based on the search results.
+      3. MUST use RELIABLE FINANCIAL DATA SOURCES (e.g., 东方财富网, 新浪财经, 同花顺, 雪球, 上市公司公告).
+      4. MUST cite data sources and their publication dates in the report.
+      
+      OUTPUT REQUIREMENTS:
+      - YOUR REASONING CHAIN MUST START WITH THE CURRENT YEAR ${currentYear} AND THE CURRENT DATE ${currentDate}.
+      - DO NOT START YOUR REASONING WITH REFERENCES TO 2024 AS THE CURRENT YEAR.
+      - USE THE MOST RECENT FINANCIAL DATA FOR ${currentYear} AND ${currentYear - 1}.
+      - MAKE SURE YOUR ANALYSIS REFLECTS THE ACTUAL CURRENT YEAR.
+      
+      Output Format:
+      You MUST output a strictly valid JSON object. Do not output Markdown formatting like \`\`\`json.
+      The JSON must match this structure:
+      {
+        "title": "string (e.g., Company Name (Ticker) ${currentYear} Report)",
+        "ticker": "string",
+        "rating": "BUY" | "HOLD" | "SELL",
+        "ratingScore": number (0-100),
+        "summary": "string (brief executive summary)",
+        "reasoning": "string (brief logical summary of the analysis including web search usage)",
+        "swot": {
+          "strengths": ["string", "string", "string"],
+          "weaknesses": ["string", "string", "string"],
+          "opportunities": ["string", "string", "string"],
+          "threats": ["string", "string", "string"]
+        },
+        "competitors": [
+          { "name": "string", "revenue": "string", "marketCap": "string", "peRatio": "string" }
+        ],
+        "sections": [
+          { "heading": "string", "content": "string" },
+          { "heading": "string", "content": "string" }
+        ],
+        "chartType": "line" | "bar",
+        "chartData": [
+          { "name": "string (e.g., Q1 ${currentYear})", "value": number }
+        ],
+        "keyMetrics": [
+          { "label": "string", "value": "string", "trend": "up" | "down" | "neutral" }
+        ]
+      }
+      
+      Content Requirements:
+      - MUST use the WEB SEARCH CAPABILITY to get the LATEST financial data (within the last 3 months).
+      - Ensure all financial metrics (Revenue, P/E, Price) are based on the SEARCH RESULTS from RELIABLE FINANCIAL DATA SOURCES.
+      - Compare against 2-3 real competitors with REAL, SPECIFIC data found in the search results.
+      - For competitors, MUST provide actual values for revenue, marketCap, and peRatio - NEVER use "未披露" or similar vague terms.
+      - Include the most recent stock price and market trends from the search results.
+      - MUST cite data sources and their publication dates in the report.
+      - In the reasoning section, describe how web search was used to gather information.
+      - Language: Simplified Chinese.
+    `;
+
+    console.log('- 构建API请求开始');
+    console.log('- 请求URL: https://api.deepseek.com/v1/chat/completions');
+    console.log('- 请求模型: deepseek-chat');
+    console.log('- 系统提示词: 专业金融分析师，可访问最新金融数据');
+    console.log('- 温度参数: 0.4');
+    
+    // 发送API请求
+    console.log('- 发送DeepSeek API请求');
+    console.log('- 启用联网搜索功能');
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -189,29 +428,77 @@ const callDeepSeekApi = async (query: string, apiKey: string, searchResults: str
       body: JSON.stringify({
         model: 'deepseek-chat', // 使用稳定可用的模型
         messages: [
-          { role: 'system', content: 'You are a professional financial analyst with access to the latest financial data.' },
+          { role: 'system', content: 'You are a professional financial analyst with access to the latest financial data. Use web search to get real-time information.' },
           { role: 'user', content: prompt }
         ],
         temperature: 0.4,
-        response_format: { type: 'json_object' }
+        response_format: { type: 'json_object' },
+        enable_web_search: true,
+        tools: [
+          {
+            type: "web_search",
+            web_search: {
+              enable: true,
+              max_results: 5
+            }
+          }
+        ]
       })
     });
 
+    console.log('- 接收DeepSeek API响应');
+    console.log('- 响应状态码:', response.status);
+    
     if (!response.ok) {
+      console.error('- DeepSeek API请求失败');
       throw new Error(`DeepSeek API error: ${response.status} ${response.statusText}`);
     }
 
+    console.log('- 解析API响应数据');
     const data = await response.json();
+    
+    // 检查是否包含联网搜索结果
+    if (data.choices?.[0]?.message?.tool_calls) {
+      console.log('- 检测到联网搜索调用');
+      console.log('- 搜索调用数量:', data.choices[0].message.tool_calls.length);
+      
+      // 记录每个搜索调用的详细信息
+      data.choices[0].message.tool_calls.forEach((toolCall: any, index: number) => {
+        if (toolCall.type === 'function' && toolCall.function.name === 'web_search') {
+          const searchParams = JSON.parse(toolCall.function.arguments);
+          console.log(`- 搜索调用 ${index + 1}: 关键词: ${searchParams.query}`);
+          console.log(`- 搜索调用 ${index + 1}: 最大结果数: ${searchParams.max_results}`);
+        }
+      });
+    }
+    
+    // 提取AI生成内容
     const resultText = data.choices?.[0]?.message?.content || '';
+    
+    console.log('- 提取AI生成内容');
+    console.log('- 生成内容长度:', resultText.length, '字符');
+    
+    // 检查内容中是否包含联网搜索引用
+    if (resultText.includes('搜索') || resultText.includes('来源') || resultText.includes('东方财富网') || resultText.includes('新浪财经')) {
+      console.log('- 内容中包含联网搜索引用，联网功能已正常工作');
+    }
 
     if (!resultText) {
+      console.error('- AI生成内容为空');
       throw new Error("Empty response from DeepSeek");
     }
 
     try {
+      console.log('- 清理AI生成内容');
       const cleanedText = cleanJsonString(resultText);
+      
+      console.log('- 解析JSON格式报告');
       const parsedReport = JSON.parse(cleanedText) as AgentReport;
-
+      
+      console.log('- 报告解析成功');
+      console.log('- 生成报告类型:', parsedReport.chartType);
+      console.log('- 核心指标数量:', parsedReport.keyMetrics?.length || 0);
+      
       return {
         ...parsedReport,
         isMock: false
@@ -234,11 +521,29 @@ const callKimiApi = async (query: string, apiKey: string, searchResults?: string
     console.log('=== Kimi API调用详情 ===');
     console.log('Kimi API - 搜索结果:', searchResults ? '有搜索结果' : '无搜索结果');
     
+    // 获取当前日期，确保模型使用正确的时间框架
+    const currentDate = new Date().toISOString().split('T')[0];
+    const currentYear = new Date().getFullYear();
+    
     const prompt = `
       Role: You are Nexus, a professional institutional financial analyst.
+      Current Date: ${currentDate}
+      Current Year: ${currentYear}
       User Query: "${query}"
       
       ${searchResults}
+      
+      IMPORTANT TIME FRAME INFORMATION:
+      - TODAY IS IN THE YEAR ${currentYear}, NOT 2024.
+      - YOU MUST USE ${currentYear} AS THE CURRENT YEAR IN YOUR ANALYSIS.
+      - WHEN REFERENCING FINANCIAL REPORTS, USE THE MOST RECENT REPORTS FOR ${currentYear} AND ${currentYear - 1}.
+      - DO NOT MENTION 2024 AS THE CURRENT YEAR.
+      
+      OUTPUT REQUIREMENTS:
+      - YOUR REASONING CHAIN MUST START WITH THE CURRENT YEAR ${currentYear} AND THE CURRENT DATE ${currentDate}.
+      - DO NOT START YOUR REASONING WITH REFERENCES TO 2024 AS THE CURRENT YEAR.
+      - USE THE MOST RECENT FINANCIAL DATA FOR ${currentYear} AND ${currentYear - 1}.
+      - MAKE SURE YOUR ANALYSIS REFLECTS THE ACTUAL CURRENT YEAR.
       
       Task: 
       1. Generate a comprehensive investment dashboard report in **Simplified Chinese (简体中文)**.
@@ -336,11 +641,29 @@ const callKimiApi = async (query: string, apiKey: string, searchResults?: string
 // 智谱 AI API调用逻辑
 const callZhipuApi = async (query: string, apiKey: string, searchResults: string = ''): Promise<AgentReport> => {
   try {
+    // 获取当前日期，确保模型使用正确的时间框架
+    const currentDate = new Date().toISOString().split('T')[0];
+    const currentYear = new Date().getFullYear();
+    
     const prompt = `
       Role: You are Nexus, a professional institutional financial analyst.
+      Current Date: ${currentDate}
+      Current Year: ${currentYear}
       User Query: "${query}"
       
       ${searchResults}
+      
+      IMPORTANT TIME FRAME INFORMATION:
+      - TODAY IS IN THE YEAR ${currentYear}, NOT 2024.
+      - YOU MUST USE ${currentYear} AS THE CURRENT YEAR IN YOUR ANALYSIS.
+      - WHEN REFERENCING FINANCIAL REPORTS, USE THE MOST RECENT REPORTS FOR ${currentYear} AND ${currentYear - 1}.
+      - DO NOT MENTION 2024 AS THE CURRENT YEAR.
+      
+      OUTPUT REQUIREMENTS:
+      - YOUR REASONING CHAIN MUST START WITH THE CURRENT YEAR ${currentYear} AND THE CURRENT DATE ${currentDate}.
+      - DO NOT START YOUR REASONING WITH REFERENCES TO 2024 AS THE CURRENT YEAR.
+      - USE THE MOST RECENT FINANCIAL DATA FOR ${currentYear} AND ${currentYear - 1}.
+      - MAKE SURE YOUR ANALYSIS REFLECTS THE ACTUAL CURRENT YEAR.
       
       Task: 
       1. Generate a comprehensive investment dashboard report in **Simplified Chinese (简体中文)**.
@@ -669,6 +992,7 @@ export const generateFinancialAnalysis = async (
         console.log('Gemini API Key状态:', !!activeApiKey);
         break;
       case AiApiType.DEEPSEEK:
+      case AiApiType.DEEPSEEK_REASONER:
         activeApiKey = process.env.DEEPSEEK_API_KEY;
         console.log('DeepSeek API Key状态:', !!activeApiKey);
         break;
@@ -687,10 +1011,10 @@ export const generateFinancialAnalysis = async (
     }
   }
 
-  // If no key is available at all, use mock data
+  // If no key is available at all, throw error
   if (!activeApiKey) {
-    console.warn(`No API key found for ${aiApiType}, utilizing mock data.`);
-    return getMockData(query);
+    console.error(`No API key found for ${aiApiType}, please configure API key first.`);
+    throw new Error(`API Key not configured for ${aiApiType}. Please configure your API key in the settings.`);
   }
   
   console.log('API Key准备就绪，开始调用具体API...');
@@ -706,10 +1030,43 @@ export const generateFinancialAnalysis = async (
         result = await callGeminiApi(query, activeApiKey);
         break;
       case AiApiType.DEEPSEEK:
+        // DeepSeek v3.2 自带联网功能，直接使用自身的联网功能
+        console.log('=== DeepSeek API调用开始 ===');
+        console.log('步骤1: 准备调用DeepSeek API');
+        console.log('AI类型:', aiApiType, '查询内容:', query);
+        console.log('API Key状态:', !!activeApiKey ? '已配置' : '未配置');
+        
+        // 调用DeepSeek API生成报告
+        console.log('步骤2: 发起DeepSeek API请求');
+        result = await callDeepSeekApi(query, activeApiKey);
+        
+        console.log('步骤3: DeepSeek API响应处理完成');
+        console.log('报告标题:', result.title);
+        console.log('股票代码:', result.ticker);
+        console.log('投资评级:', result.rating);
+        break;
+      case AiApiType.DEEPSEEK_REASONER:
+        // DeepSeek 深度思考版，使用专用的API地址和模型
+        console.log('=== DeepSeek 深度思考版 API调用开始 ===');
+        console.log('步骤1: 准备调用DeepSeek 深度思考版 API');
+        console.log('AI类型:', aiApiType, '查询内容:', query);
+        console.log('API Key状态:', !!activeApiKey ? '已配置' : '未配置');
+        console.log('API地址:', 'https://api.deepseek.com/v3.2_speciale_expires_on_20251215');
+        console.log('模型名称:', 'deepseek-reasoner');
+        
+        // 调用DeepSeek 深度思考版 API生成报告
+        console.log('步骤2: 发起DeepSeek 深度思考版 API请求');
+        result = await callDeepSeekReasonerApi(query, activeApiKey);
+        
+        console.log('步骤3: DeepSeek 深度思考版 API响应处理完成');
+        console.log('报告标题:', result.title);
+        console.log('股票代码:', result.ticker);
+        console.log('投资评级:', result.rating);
+        break;
       case AiApiType.KIMI:
       case AiApiType.ZHIPU:
       case AiApiType.BAIDU:
-        // 为所有国内AI厂商添加百度搜索功能
+        // 为其他国内AI厂商添加百度搜索功能
         // 使用百度文心一言的API Key作为百度搜索API的密钥（如果可用）
         console.log('=== 百度搜索API调用开始 ===');
         const baiduApiKey = process.env.BAIDU_API_KEY || activeApiKey;
@@ -722,9 +1079,7 @@ export const generateFinancialAnalysis = async (
         // 根据不同的AI厂商调用相应的API，并传入搜索结果
         console.log('=== AI API调用开始 ===');
         console.log('AI类型:', aiApiType, '查询内容:', query);
-        if (aiApiType === AiApiType.DEEPSEEK) {
-          result = await callDeepSeekApi(query, activeApiKey, formattedSearchResults);
-        } else if (aiApiType === AiApiType.KIMI) {
+        if (aiApiType === AiApiType.KIMI) {
           result = await callKimiApi(query, activeApiKey, formattedSearchResults);
         } else if (aiApiType === AiApiType.ZHIPU) {
           result = await callZhipuApi(query, activeApiKey, formattedSearchResults);
@@ -746,6 +1101,20 @@ export const generateFinancialAnalysis = async (
       rating: result.rating,
       isMock: result.isMock
     });
+    
+    // 数据验证：验证AI生成的报告数据与权威金融数据源的一致性
+    console.log('=== 数据验证开始 ===');
+    const validationService = createDataValidationService();
+    const validationResults = await validationService.validateReportData(result.ticker, result);
+    const overallConfidence = validationService.calculateOverallConfidence(validationResults);
+    
+    // 将数据验证结果添加到报告中
+    result.confidenceScore = overallConfidence;
+    
+    console.log('数据验证结果:', validationService.formatValidationResults(validationResults));
+    console.log('整体可信度评分:', overallConfidence);
+    console.log('=== 数据验证结束 ===');
+    
     console.log('=== AI API调用结束 ===');
     return result;
 

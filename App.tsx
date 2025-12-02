@@ -213,6 +213,7 @@ const App: React.FC = () => {
                 <strong>
                   {selectedAiApi === AiApiType.GEMINI && '已连接至 Gemini AI (支持 Google Search 实时联网)'}
                   {selectedAiApi === AiApiType.DEEPSEEK && '已连接至 DeepSeek AI'}
+                  {selectedAiApi === AiApiType.DEEPSEEK_REASONER && '已连接至 DeepSeek 深度思考版'}
                   {selectedAiApi === AiApiType.KIMI && '已连接至 Kimi AI'}
                   {selectedAiApi === AiApiType.ZHIPU && '已连接至 智谱 AI'}
                   {selectedAiApi === AiApiType.BAIDU && '已连接至 百度文心一言'}
@@ -230,6 +231,7 @@ const App: React.FC = () => {
             >
               <option value={AiApiType.GEMINI}>Gemini</option>
               <option value={AiApiType.DEEPSEEK}>DeepSeek</option>
+              <option value={AiApiType.DEEPSEEK_REASONER}>DeepSeek 深度思考版</option>
               <option value={AiApiType.KIMI}>Kimi</option>
               <option value={AiApiType.ZHIPU}>智谱</option>
               <option value={AiApiType.BAIDU}>百度文心一言</option>
@@ -241,6 +243,7 @@ const App: React.FC = () => {
                     type="password" 
                     placeholder={`粘贴 ${selectedAiApi === AiApiType.GEMINI ? 'Gemini' : 
                                   selectedAiApi === AiApiType.DEEPSEEK ? 'DeepSeek' : 
+                                  selectedAiApi === AiApiType.DEEPSEEK_REASONER ? 'DeepSeek 深度思考版' : 
                                   selectedAiApi === AiApiType.KIMI ? 'Kimi' : 
                                   selectedAiApi === AiApiType.ZHIPU ? '智谱' : '百度文心一言'} API Key`}
                     className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400 w-48 md:w-72 bg-slate-50"

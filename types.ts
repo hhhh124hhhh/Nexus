@@ -58,6 +58,9 @@ export interface AgentReport {
   quotaExceeded?: boolean;
   errorMessage?: string;
   
+  // Data validation
+  confidenceScore?: number; // 0-100, data validation confidence score
+  
   isMock?: boolean;
 }
 
@@ -65,6 +68,7 @@ export interface AgentReport {
 export enum AiApiType {
   GEMINI = 'gemini',
   DEEPSEEK = 'deepseek',
+  DEEPSEEK_REASONER = 'deepseek_reasoner',
   KIMI = 'kimi',
   ZHIPU = 'zhipu',
   BAIDU = 'baidu'
